@@ -17,4 +17,4 @@ jobs:
       with:
         version: v1.45
     - run: go mod download
-    - run: go build
+    - run: make build
