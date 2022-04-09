@@ -44,8 +44,8 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 
 	issues := []Issue{}
 
-	cmmitIter.ForEach(func(commit *object.Commit) error {
-		commit.Parents().ForEach(func(parentCommit *object.Commit) error {
+	err = cmmitIter.ForEach(func(commit *object.Commit) error {
+		err = commit.Parents().ForEach(func(parentCommit *object.Commit) error {
 			patch, err := parentCommit.Patch(commit)
 
 			if err != nil {
@@ -75,6 +75,10 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 			return nil
 		})
 
+		if err != nil {
+			return err
+		}
+
 		if rule, ok := inspector.InspectCommitMessage(commit.String()); !ok {
 			issue := NewRepositoryIssue(
 				repo.Url,
@@ -87,6 +91,10 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 		}
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	return issues, nil
 }
