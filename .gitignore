@@ -1,3 +1,4 @@
 /cmd/mk/mk
 /cmd/mk-server/mk-server
 /bin/
+/.vscode/
