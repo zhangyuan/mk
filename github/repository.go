@@ -64,13 +64,13 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 					_, to := filePatch.Files()
 
 					if chunk.Type() == diff.Add {
-						rule, ok := inspector.InspectFileContent(chunk.Content())
+						exception, ok := inspector.InspectFileContent(chunk.Content())
 						if !ok {
 							issue := NewRepositoryIssue(
 								repo.Url,
 								commit.Hash.String(),
 								to.Path(),
-								rule.Message,
+								exception.Message,
 								"file",
 							)
 							issues = append(issues, *issue)
@@ -84,6 +84,46 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 
 		if err != nil {
 			return err
+		}
+
+		if commit.NumParents() == 0 {
+			files, err := commit.Files()
+			if err != nil {
+				return err
+			}
+
+			if err := files.ForEach(func(file *object.File) error {
+				isBinary, err := file.IsBinary()
+				if err != nil {
+					return err
+				}
+
+				if isBinary {
+					return nil
+				}
+
+				content, err := file.Contents()
+				if err != nil {
+					return nil
+				}
+
+				exception, ok := inspector.InspectFileContent(content)
+
+				if !ok {
+					issue := NewRepositoryIssue(
+						repo.Url,
+						commit.Hash.String(),
+						file.Name,
+						exception.Message,
+						"file",
+					)
+					issues = append(issues, *issue)
+				}
+
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 
 		if rule, ok := inspector.InspectCommitMessage(commit.String()); !ok {
