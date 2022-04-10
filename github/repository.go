@@ -4,6 +4,7 @@ import (
 	"mk/git"
 	"mk/inspection"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/pkg/errors"
@@ -32,6 +33,12 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 	gitRepo, err := git.OpenOrClone(repo.clonePath, repo.Url)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to open or clone repo")
+	}
+
+	if err := gitRepo.Prune(gogit.PruneOptions{
+		Handler: gitRepo.DeleteObject,
+	}); err != nil {
+		return nil, err
 	}
 
 	inspector := inspection.NewInspector()
