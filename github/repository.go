@@ -4,9 +4,6 @@ import (
 	"mk/git"
 	"mk/inspection"
 
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/diff"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/pkg/errors"
 )
 
@@ -35,12 +32,6 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 		return nil, errors.Wrap(err, "fail to open or clone repo")
 	}
 
-	if err := gitRepo.Prune(gogit.PruneOptions{
-		Handler: gitRepo.DeleteObject,
-	}); err != nil {
-		return nil, err
-	}
-
 	inspector := inspection.NewInspector()
 
 	cmmitIter, err := gitRepo.CommitObjects()
@@ -51,8 +42,8 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 
 	issues := []Issue{}
 
-	err = cmmitIter.ForEach(func(commit *object.Commit) error {
-		err = commit.Parents().ForEach(func(parentCommit *object.Commit) error {
+	err = cmmitIter.ForEach(func(commit *git.Commit) error {
+		err = commit.Parents().ForEach(func(parentCommit *git.Commit) error {
 			patch, err := parentCommit.Patch(commit)
 
 			if err != nil {
@@ -60,22 +51,21 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 			}
 
 			for _, filePatch := range patch.FilePatches() {
-				for _, chunk := range filePatch.Chunks() {
+				for _, chunk := range filePatch.AddedChunks() {
 					_, to := filePatch.Files()
 
-					if chunk.Type() == diff.Add {
-						exception, ok := inspector.InspectFileContent(chunk.Content())
-						if !ok {
-							issue := NewRepositoryIssue(
-								repo.Url,
-								commit.Hash.String(),
-								to.Path(),
-								exception.Message,
-								"file",
-							)
-							issues = append(issues, *issue)
-						}
+					exception, ok := inspector.InspectFileContent(chunk.Content())
+					if !ok {
+						issue := NewRepositoryIssue(
+							repo.Url,
+							commit.Hash(),
+							to.Path(),
+							exception.Message,
+							"file",
+						)
+						issues = append(issues, *issue)
 					}
+
 				}
 			}
 
@@ -92,7 +82,7 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 				return err
 			}
 
-			if err := files.ForEach(func(file *object.File) error {
+			if err := files.ForEach(func(file *git.ObjectFile) error {
 				isBinary, err := file.IsBinary()
 				if err != nil {
 					return err
@@ -112,8 +102,8 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 				if !ok {
 					issue := NewRepositoryIssue(
 						repo.Url,
-						commit.Hash.String(),
-						file.Name,
+						commit.Hash(),
+						file.Name(),
 						exception.Message,
 						"file",
 					)
@@ -129,7 +119,7 @@ func (repo *Repository) Inspect() ([]Issue, error) {
 		if rule, ok := inspector.InspectCommitMessage(commit.String()); !ok {
 			issue := NewRepositoryIssue(
 				repo.Url,
-				commit.Hash.String(),
+				commit.Hash(),
 				"",
 				rule.Message,
 				"commit",

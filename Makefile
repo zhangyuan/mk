@@ -11,3 +11,7 @@ mk:
 .PHONY: mk-server
 mk-server:
 	go build -o bin/mk-server cmd/mk-server/main.go
+
+.PHONY: lint
+lint:
+	golangci-lint run 
